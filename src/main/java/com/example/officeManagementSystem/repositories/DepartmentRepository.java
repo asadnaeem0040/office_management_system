@@ -1,6 +1,6 @@
-package repositories;
+package com.example.officeManagementSystem.repositories;
 
-import models.Department;
+import com.example.officeManagementSystem.models.Department;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface DepartmentRepository extends JpaRepository<Department,Long> {

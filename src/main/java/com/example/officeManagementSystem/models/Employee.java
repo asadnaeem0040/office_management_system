@@ -1,4 +1,4 @@
-package models;
+package com.example.officeManagementSystem.models;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
