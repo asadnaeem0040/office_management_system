@@ -1,5 +1,6 @@
 package com.example.officeManagementSystem.controllers;
 
+import com.example.officeManagementSystem.dtos.DepartmentDTO;
 import com.example.officeManagementSystem.models.Department;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -13,7 +14,7 @@ public class DepartmentController {
 
     //create
     @PostMapping
-    public Department addDepartment(@RequestBody Department department)
+    public Department addDepartment(@RequestBody DepartmentDTO department)
     {
         return departmentService.addDepartment(department);
     }
@@ -25,7 +26,7 @@ public class DepartmentController {
     }
     //update
     @PutMapping("/{id}")
-    public Department updateDepartment(@RequestBody Department department, @PathVariable Long id)
+    public Department updateDepartment(@RequestBody DepartmentDTO department, @PathVariable Long id)
     {
         return departmentService.updateDepartment(id,department);
     }

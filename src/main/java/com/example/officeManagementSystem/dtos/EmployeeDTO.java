@@ -1,6 +1,9 @@
-package com.example.officeManagementSystem.models;
+package com.example.officeManagementSystem.dtos;
 
-import jakarta.persistence.*;
+
+import com.example.officeManagementSystem.models.Department;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
@@ -14,23 +17,12 @@ import java.util.Date;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
+public class EmployeeDTO {
 
-@Entity
-public class Employee {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long id;
     private String name;
-
-    @Email
     private String email;
-
-    @Positive
     private double salary;
     private Date joiningDate;
+    private Long departmentId;
 
-    @ManyToOne
-    @JoinColumn(name = "department_id")
-    private Department department;
 }

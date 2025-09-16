@@ -1,7 +1,11 @@
 package com.example.officeManagementSystem.controllers;
 
+import com.example.officeManagementSystem.dtos.EmployeeDTO;
+import com.example.officeManagementSystem.models.AdjustmentSalary;
 import com.example.officeManagementSystem.models.Employee;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.example.officeManagementSystem.services.EmployeeService;
 
@@ -14,7 +18,7 @@ public class EmployeeController {
 
     //create
     @PostMapping
-    public Employee addEmployee(@RequestBody Employee employee)
+    public ResponseEntity<?> addEmployee(@RequestBody @Valid EmployeeDTO employee)
     {
         return employeeService.addEmployee(employee);
     }
@@ -24,9 +28,11 @@ public class EmployeeController {
     {
         return employeeService.findEmployee(id);
     }
+
+
     //update
     @PutMapping("/{id}")
-    public Employee updateEmployee(@RequestBody Employee employee, @PathVariable Long id)
+    public Employee updateEmployee(@RequestBody @Valid EmployeeDTO employee, @PathVariable Long id)
     {
         return employeeService.updateEmployee(employee, id);
     }
@@ -36,5 +42,11 @@ public class EmployeeController {
     public void deleteEmployee(@PathVariable Long id)
     {
         employeeService.deleteEmployee(id);
+    }
+
+    @PutMapping("/adjust-salary")
+    public void  adjustSalary(@RequestBody @Valid AdjustmentSalary adjustment)
+    {
+        employeeService.adjustSalary(adjustment);
     }
 }
