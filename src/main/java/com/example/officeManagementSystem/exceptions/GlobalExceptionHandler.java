@@ -18,7 +18,7 @@ public class GlobalExceptionHandler {
         error.put("timestamp", LocalDateTime.now());
         error.put("status", HttpStatus.BAD_REQUEST.value());
         error.put("error", "Bad Request");
-        error.put("message", ex.getMessage()); // <--- your custom message
+        error.put("message", ex.getMessage());
         return ResponseEntity.badRequest().body(error);
     }
 }

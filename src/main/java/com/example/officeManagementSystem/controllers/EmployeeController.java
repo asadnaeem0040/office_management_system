@@ -1,5 +1,6 @@
 package com.example.officeManagementSystem.controllers;
 
+import com.example.officeManagementSystem.dtos.AdjustmentSalaryDTO;
 import com.example.officeManagementSystem.dtos.EmployeeDTO;
 import com.example.officeManagementSystem.models.AdjustmentSalary;
 import com.example.officeManagementSystem.models.Employee;
@@ -45,8 +46,8 @@ public class EmployeeController {
     }
 
     @PutMapping("/adjust-salary")
-    public void  adjustSalary(@RequestBody @Valid AdjustmentSalary adjustment)
+    public void  adjustSalary(@RequestBody @Valid AdjustmentSalaryDTO adjustment)
     {
-        employeeService.adjustSalary(adjustment);
+        employeeService.validateAndAdjustDepartmentSalary(adjustment);
     }
 }

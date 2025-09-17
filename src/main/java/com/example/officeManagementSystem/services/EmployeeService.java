@@ -1,5 +1,6 @@
 package com.example.officeManagementSystem.services;
 
+import com.example.officeManagementSystem.dtos.AdjustmentSalaryDTO;
 import com.example.officeManagementSystem.dtos.EmployeeDTO;
 import com.example.officeManagementSystem.exceptions.EmailException;
 import com.example.officeManagementSystem.exceptions.PerformanceScoreException;
@@ -7,7 +8,9 @@ import com.example.officeManagementSystem.exceptions.SalaryException;
 import com.example.officeManagementSystem.models.AdjustmentSalary;
 import com.example.officeManagementSystem.models.Department;
 import com.example.officeManagementSystem.models.Employee;
+import com.example.officeManagementSystem.repositories.AdjustmentSalaryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -15,7 +18,10 @@ import com.example.officeManagementSystem.repositories.EmployeeRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.*;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
@@ -25,12 +31,15 @@ import java.util.regex.Pattern;
 @Service
 public class EmployeeService {
     @Autowired
+    private AdjustmentSalaryRepository adjustmentSalaryRepository;
+    @Autowired
     private EmployeeRepository employeeRepository;
 
     @Autowired
     private DepartmentService departmentService;
 
-    private Map<Long, Long> lastAdjustmentMap = new HashMap<>();
+    @Autowired @Lazy
+    private EmployeeService employeeService;
 
     private static final Logger log = LoggerFactory.getLogger(EmployeeService.class);
 
@@ -111,63 +120,91 @@ public class EmployeeService {
         employeeRepository.deleteById(id);
     }
 
-    public void adjustSalary(AdjustmentSalary adjustment)
-    {
-        if (adjustment.performanceScore < 0 || adjustment.performanceScore>100) {
-            throw new PerformanceScoreException("Performance score is out of range");
-        }
-        List<Employee> allEmployees = employeeRepository.findAll();
+    public void validateAndAdjustDepartmentSalary(AdjustmentSalaryDTO temp) {
+        AdjustmentSalary request = new AdjustmentSalary().builder()
+                .department(departmentService.findDepartment(temp.getDepartmentId()))
+                .performanceScore(temp.getPerformanceScore()).build();
+        try {
+            log.info("Validating and adjusting salaries for department {}", request);
 
-        for(int i=0;i<allEmployees.size();i++)
-        {
-            /*Long deptId = adjustment.departmentId;
-            long now = System.currentTimeMillis();
-
-
-            if(lastAdjustmentMap.containsKey(deptId)) {
-                long lastTime = lastAdjustmentMap.get(deptId);
-                long diffMinutes = (now - lastTime) / (1000 * 60);
-
-                if(diffMinutes < 30) {
-                    log.warn("Salary adjustment for department {} skipped (within 30 min idempotency window)", deptId);
-                    return; // skip execution
-                }
+            if(request.getDepartment() == null || request.getDepartment().getId() == null) {
+                return;
             }
-
-
-            lastAdjustmentMap.put(deptId, now);*/
-
-            if(allEmployees.get(i).getDepartment().getId().equals(adjustment.departmentId))
-            {
-                Employee employee = allEmployees.get(i);
-
-                if(adjustment.performanceScore >= 90){
-                    employee.setSalary(employee.getSalary()+(employee.getSalary()*0.15));
-                }
-                else if(adjustment.performanceScore >= 70) {
-                    employee.setSalary(employee.getSalary()+(employee.getSalary()*0.1));
-                }
-                else {
-                    log.warn("low performance score");
-                }
-
-
-                Calendar joinCal = Calendar.getInstance();
-                joinCal.setTime(employee.getJoiningDate());
-
-                Calendar nowCal = Calendar.getInstance();
-                int years = nowCal.get(Calendar.YEAR) - joinCal.get(Calendar.YEAR);
-
-                if(years > 5){
-                    employee.setSalary(employee.getSalary()+(employee.getSalary()*0.05));
-                }
-                if(employee.getSalary() > 200000){
-                    employee.setSalary(200000);
-                }
-
-                employeeRepository.save(employee);
-            }
+            employeeService.adjustSalary(request);
+        } catch (Exception exception) {
+            log.error("Error Occurred while adjusting salaries ", exception);
         }
     }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    public void adjustSalary(AdjustmentSalary request) {
+
+        LocalDateTime now = LocalDateTime.now();
+        AdjustmentSalary record = adjustmentSalaryRepository.findByDepartmentId(request.getDepartment().getId());
+
+        if (record != null && record.getLastAdjustedAt() != null) {
+            long diffMinutes = java.time.Duration.between(record.getLastAdjustedAt(), now).toMinutes();
+            if (diffMinutes < 30) {
+                log.warn("Salary adjustment skipped for department {} (within 30 minutes)",
+                        record.getDepartment().getName());
+                return;
+            }
+        }
+
+
+        if (request.getPerformanceScore() < 0 || request.getPerformanceScore() > 100) {
+            throw new PerformanceScoreException("Performance score is out of range");
+        }
+
+
+        List<Employee> employees = employeeRepository.findAllByDepartment_Id(request.getDepartment().getId());
+        for (Employee employee : employees) {
+
+            double newSalary = employee.getSalary();
+            if (request.getPerformanceScore() >= 90)
+            {
+                newSalary = newSalary+(newSalary*0.15);
+            }
+            else if (request.getPerformanceScore() >= 70)
+            {
+                newSalary = newSalary+(newSalary*0.1);
+            }
+            else log.warn("No Change");
+
+            if (employee.getJoiningDate() != null) {
+                LocalDate joinDate = employee.getJoiningDate().toInstant()
+                        .atZone(ZoneId.systemDefault()).toLocalDate();
+                int years = Period.between(joinDate, LocalDate.now()).getYears();
+                if (years > 5)
+                {
+                    newSalary = newSalary+(newSalary*0.05);
+                }
+            } else {
+                log.warn("Employee {} has no joining date, skipping tenure bonus", employee.getName());
+            }
+
+            if (newSalary > 200000)
+                newSalary = 200000;
+
+            employee.setSalary(newSalary);
+        }
+
+        employeeRepository.saveAll(employees);
+
+        if (record == null) {
+            record = new AdjustmentSalary();
+            Department department = departmentService.findDepartment(request.getDepartment().getId());
+
+            if(department == null) {
+                throw new RuntimeException("Department not found with the given ID");
+            }
+
+            record.setDepartment(department);
+        }
+        record.setLastAdjustedAt(now);
+        record.setPerformanceScore(request.getPerformanceScore());
+        adjustmentSalaryRepository.save(record);
+    }
+
 
 }
